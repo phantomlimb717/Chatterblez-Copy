@@ -482,11 +482,7 @@ class MainWindow(QMainWindow):
             print(f"  [{idx}] type: {type(chap)}, repr: {repr(chap)}")
 
         selected_chapters = [c for c in self.document_chapters if c.is_selected]
-        print(f"selected_chapters (after build): {selected_chapters}, length: {len(selected_chapters)}")
-        if not selected_chapters:
-            print("No chapters selected after build. Aborting synthesis.")
-            QMessageBox.warning(self, "No chapters", "No chapters selected")
-            return
+
         if hasattr(self, "batch_files") and self.batch_files:
             selected_files = [f["path"] for f in self.batch_files if f["selected"]]
             if not selected_files:
@@ -527,7 +523,12 @@ class MainWindow(QMainWindow):
             self.batch_worker.finished.connect(self.on_batch_finished)
             self.batch_worker.start()
             return
-
+        else:
+            print(f"selected_chapters (after build): {selected_chapters}, length: {len(selected_chapters)}")
+            if not selected_chapters:
+                print("No chapters selected after build. Aborting synthesis.")
+                QMessageBox.warning(self, "No chapters", "No chapters selected")
+                return
         if not selected_chapters:
             print("No chapters selected")
             QMessageBox.warning(self, "No chapters", "No chapters selected")

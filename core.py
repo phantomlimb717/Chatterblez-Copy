@@ -51,7 +51,7 @@ def get_nlp():
         nlp = spacy.blank("xx")  # very small, language-agnostic
     except Exception:  # Fallback – should basically never happen
         load_spacy()
-        nlp = spacy.load("xx_ent_wiki_sm")
+        nlp = spacy.load("en_core_web_trf")
     if "sentencizer" not in nlp.pipe_names:
         nlp.add_pipe("sentencizer")
     return nlp
@@ -79,9 +79,9 @@ def update_stats(stats, added_chars):
 
 
 def load_spacy():
-    if not spacy.util.is_package("xx_ent_wiki_sm"):
-        print("Downloading Spacy model xx_ent_wiki_sm...")
-        spacy.cli.download("xx_ent_wiki_sm")
+    if not spacy.util.is_package("en_core_web_trf"):
+        print("Downloading Spacy model en_core_web_trf...")
+        spacy.cli.download("en_core_web_trf")
 
 
 import ctypes
