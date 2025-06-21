@@ -43,9 +43,12 @@ Ready to dive in? Here's how to get Chatterblez up and running on your machine:
 3.  **Install Python Dependencies** 📦
     Navigate into the cloned directory and install the required Python packages:
 
-    ```bash
+    ```
     cd Chatterblez
-    pip install -r requirements.txt
+    uv venv --python 3.12 # or however you want to create the venv
+    uv venv --python 3.12
+    .venv\Scripts\activate
+    uv pip install --index-strategy unsafe-best-match -r requirements.txt
     ```
 
     This might take a moment, so grab a coffee\! ☕
