@@ -1,1 +1,1 @@
-python cli.py --file "C:/Users/User/Downloads/the-digital-explorer.epub" --output "C:/MAM/Brunner" --wav "C:/Users/User/Downloads/Patrick Stewart Performs A Christmas Carol (mp3cut.net).wav"
+python cli.py --file "C:/MAM/Brunner/Listen! The Stars! - John Brunner.epub" --output "C:/MAM/Brunner" --wav "C:/Users/User/Downloads/Patrick Stewart Performs A Christmas Carol (mp3cut.net).wav"

@@ -53,6 +53,10 @@ class CoreThread(QThread):
     def __init__(self, **params):
         super().__init__()
         self.params = params
+        self._should_stop = False
+
+    def stop(self):
+        self._should_stop = True
 
     def post_event(self, evt_name: str, **kwargs):
         if evt_name == "CORE_STARTED":
@@ -93,6 +97,7 @@ class MainWindow(QMainWindow):
         self.core_thread: CoreThread | None = None
 
         self._build_ui()
+        self.synth_running = False
 
         wav_path = self.settings.value("selected_wav_path", "", type=str)
         if wav_path:
@@ -195,7 +200,7 @@ class MainWindow(QMainWindow):
 
         # Start button
         self.start_btn = QPushButton("Start Synthesis")
-        self.start_btn.clicked.connect(self.start_synthesis)
+        self.start_btn.clicked.connect(self.handle_start_stop_synthesis)
         controls_layout.addWidget(self.start_btn)
 
         # Progress bar
@@ -474,113 +479,113 @@ class MainWindow(QMainWindow):
             self.settings.setValue("output_folder", folder)
 
 
-    def start_synthesis(self):
-        print("Start synthesis clicked")
-        if not self.selected_file_path and not (hasattr(self, "batch_files") and self.batch_files):
-            print("No file selected")
-            QMessageBox.warning(self, "No file", "Please open an e-book first")
-            return
-
-        # update chapter selection flags
-        for i, chap in enumerate(self.document_chapters):
-            item = self.chapter_list.item(i)
-            chap.is_selected = item.checkState() == Qt.CheckState.Checked
-
-        print(f"selected_file_path: {self.selected_file_path}")
-        print(f"selected_chapters: {selected_chapters if 'selected_chapters' in locals() else 'N/A'}")
-        print(f"selected_wav_path: {self.selected_wav_path}")
-        print(f"output_dir: {self.output_dir_edit.text()}")
-
-        print(f"document_chapters type: {type(self.document_chapters)}, length: {len(self.document_chapters)}")
-        for idx, chap in enumerate(self.document_chapters):
-            print(f"  [{idx}] type: {type(chap)}, repr: {repr(chap)}")
-
-        selected_chapters = [c for c in self.document_chapters if c.is_selected]
-
-        if hasattr(self, "batch_files") and self.batch_files:
-            selected_files = [f["path"] for f in self.batch_files if f["selected"]]
-            if not selected_files:
-                QMessageBox.information(self, "No Files", "No files selected for batch synthesis.")
-                self.start_btn.setEnabled(True)
+    def handle_start_stop_synthesis(self):
+        if not self.synth_running:
+            # Start synthesis
+            print("Start synthesis clicked")
+            if not self.selected_file_path and not (hasattr(self, "batch_files") and self.batch_files):
+                print("No file selected")
+                QMessageBox.warning(self, "No file", "Please open an e-book first")
                 return
-            # Get ignore list from settings
-            ignore_csv = self.settings.value("batch_ignore_chapter_names", "", type=str)
-            ignore_list = [name.strip() for name in ignore_csv.split(",") if name.strip()]
 
-            # Write equivalent CLI command for batch mode
-            self.write_cli_command(
-                batch_folder=os.path.dirname(selected_files[0]) if selected_files else "",
-                output_folder=self.output_dir_edit.text(),
-                filterlist=ignore_csv,
-                wav_path=self.selected_wav_path,
-                speed=1.0,
-                is_batch=True
-            )
+            # update chapter selection flags
+            for i, chap in enumerate(self.document_chapters):
+                item = self.chapter_list.item(i)
+                chap.is_selected = item.checkState() == Qt.CheckState.Checked
 
-            # Batch progress bar and timer setup
-            self.batch_progress_label.setText(f"Batch Progress: 0 / {len(selected_files)}")
-            self.batch_progress_label.show()
-            self.batch_progress_bar.setMaximum(len(selected_files))
-            self.batch_progress_bar.setValue(0)
-            self.batch_progress_bar.show()
-            self.batch_start_time = time.time()
+            selected_chapters = [c for c in self.document_chapters if c.is_selected]
 
-            # Start batch worker thread
-            self.batch_worker = BatchWorker(
-                selected_files=selected_files,
-                output_dir=self.output_dir_edit.text(),
-                ignore_list=ignore_list,
-                wav_path=self.selected_wav_path
-            )
-            self.batch_worker.progress_update.connect(self.on_batch_progress_update)
-            self.batch_worker.chapter_progress.connect(self.on_core_progress)
-            self.batch_worker.finished.connect(self.on_batch_finished)
-            self.batch_worker.start()
-            return
-        else:
-            print(f"selected_chapters (after build): {selected_chapters}, length: {len(selected_chapters)}")
+            if hasattr(self, "batch_files") and self.batch_files:
+                selected_files = [f["path"] for f in self.batch_files if f["selected"]]
+                if not selected_files:
+                    QMessageBox.information(self, "No Files", "No files selected for batch synthesis.")
+                    return
+                # Get ignore list from settings
+                ignore_csv = self.settings.value("batch_ignore_chapter_names", "", type=str)
+                ignore_list = [name.strip() for name in ignore_csv.split(",") if name.strip()]
+
+                # Write equivalent CLI command for batch mode
+                self.write_cli_command(
+                    batch_folder=os.path.dirname(selected_files[0]) if selected_files else "",
+                    output_folder=self.output_dir_edit.text(),
+                    filterlist=ignore_csv,
+                    wav_path=self.selected_wav_path,
+                    speed=1.0,
+                    is_batch=True
+                )
+
+                # Batch progress bar and timer setup
+                self.batch_progress_label.setText(f"Batch Progress: 0 / {len(selected_files)}")
+                self.batch_progress_label.show()
+                self.batch_progress_bar.setMaximum(len(selected_files))
+                self.batch_progress_bar.setValue(0)
+                self.batch_progress_bar.show()
+                self.batch_start_time = time.time()
+
+                # Start batch worker thread
+                self.batch_worker = BatchWorker(
+                    selected_files=selected_files,
+                    output_dir=self.output_dir_edit.text(),
+                    ignore_list=ignore_list,
+                    wav_path=self.selected_wav_path
+                )
+                self.batch_worker.progress_update.connect(self.on_batch_progress_update)
+                self.batch_worker.chapter_progress.connect(self.on_core_progress)
+                self.batch_worker.finished.connect(self.on_batch_finished)
+                self.batch_worker.start()
+                self.synth_running = True
+                self.start_btn.setText("Stop Synthesizing")
+                return
+            else:
+                if not selected_chapters:
+                    print("No chapters selected after build. Aborting synthesis.")
+                    QMessageBox.warning(self, "No chapters", "No chapters selected")
+                    return
             if not selected_chapters:
-                print("No chapters selected after build. Aborting synthesis.")
+                print("No chapters selected")
                 QMessageBox.warning(self, "No chapters", "No chapters selected")
                 return
-        if not selected_chapters:
-            print("No chapters selected")
-            QMessageBox.warning(self, "No chapters", "No chapters selected")
-            return
 
-        self.start_btn.setEnabled(False)
+            # Write equivalent CLI command for single file mode
+            self.write_cli_command(
+                file_path=self.selected_file_path,
+                output_folder=self.output_dir_edit.text(),
+                filterlist="",
+                wav_path=self.selected_wav_path,
+                speed=1.0,
+                is_batch=False
+            )
 
-        # Write equivalent CLI command for single file mode
-        self.write_cli_command(
-            file_path=self.selected_file_path,
-            output_folder=self.output_dir_edit.text(),
-            filterlist="",
-            wav_path=self.selected_wav_path,
-            speed=1.0,
-            is_batch=False
-        )
-
-        print("About to create CoreThread with params:")
-        params = dict(
-            file_path=self.selected_file_path,
-            pick_manually=False,
-            speed=1.0,
-            output_folder=self.output_dir_edit.text(),
-            selected_chapters=selected_chapters,
-            audio_prompt_wav=self.selected_wav_path,
-        )
-        print(params)
-        try:
-            self.core_thread = CoreThread(**params)
-            self.core_thread.core_started.connect(self.on_core_started)
-            self.core_thread.progress.connect(self.on_core_progress)
-            self.core_thread.chapter_started.connect(self.on_core_chapter_started)
-            self.core_thread.chapter_finished.connect(self.on_core_chapter_finished)
-            self.core_thread.finished.connect(self.on_core_finished)
-            self.core_thread.error.connect(self.on_core_error)
-            self.core_thread.start()
-        except Exception as e:
-            print(f"Exception during CoreThread creation/start: {e}")
+            print("About to create CoreThread with params:")
+            params = dict(
+                file_path=self.selected_file_path,
+                pick_manually=False,
+                speed=1.0,
+                output_folder=self.output_dir_edit.text(),
+                selected_chapters=selected_chapters,
+                audio_prompt_wav=self.selected_wav_path,
+            )
+            print(params)
+            try:
+                self.core_thread = CoreThread(**params)
+                self.core_thread.core_started.connect(self.on_core_started)
+                self.core_thread.progress.connect(self.on_core_progress)
+                self.core_thread.chapter_started.connect(self.on_core_chapter_started)
+                self.core_thread.chapter_finished.connect(self.on_core_chapter_finished)
+                self.core_thread.finished.connect(self.on_core_finished)
+                self.core_thread.error.connect(self.on_core_error)
+                self.core_thread.start()
+                self.synth_running = True
+                self.start_btn.setText("Stop Synthesizing")
+            except Exception as e:
+                print(f"Exception during CoreThread creation/start: {e}")
+        else:
+            # Stop synthesis
+            print("Stop synthesis clicked")
+            if self.core_thread is not None:
+                self.core_thread.stop()
+            self.synth_running = False
+            self.start_btn.setText("Start Synthesis")
 
 # ----------------- Slots connected to CoreThread signals -----------------
     def on_core_started(self):
@@ -615,7 +620,8 @@ class MainWindow(QMainWindow):
 
     def on_core_finished(self):
         self.progress_bar.setValue(100)
-        self.start_btn.setEnabled(True)
+        self.synth_running = False
+        self.start_btn.setText("Start Synthesis")
         # Delete all .wav files in the output folder with extra debug output
         import glob
         out_dir = os.path.abspath(self.output_dir_edit.text())
@@ -648,7 +654,8 @@ class MainWindow(QMainWindow):
         QMessageBox.information(self, "All files completed", "All files completed")
 
     def on_core_error(self, message: str):
-        self.start_btn.setEnabled(True)
+        self.synth_running = False
+        self.start_btn.setText("Start Synthesis")
         print(f"Error: {message}")
         QMessageBox.critical(self, "Error", message)
 

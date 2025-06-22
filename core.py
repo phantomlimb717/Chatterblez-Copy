@@ -181,7 +181,8 @@ def replace_preserve_case(text, old, new):
 
     return text
 
-SPEAKABLE_PUNCT = '.!?,:;-\'"'
+# Define only "speakable" punctuation - ones that affect how text is read aloud
+SPEAKABLE_PUNCT = '.,-\'"'
 ESCAPED_SPEAKABLE = re.escape(SPEAKABLE_PUNCT)
 
 # All punctuation for removal purposes
@@ -191,29 +192,34 @@ ALL_PUNCT = re.escape(string.punctuation)
 remove_unwanted = re.compile(rf'[^\w\s{ALL_PUNCT}]+')
 remove_unspeakable = re.compile(rf'[{re.escape("".join(set(string.punctuation) - set(SPEAKABLE_PUNCT)))}]+')
 normalize_quotes = re.compile(r'[""''`]')  # Smart quotes and backticks to normalize
+replace_em_dash = re.compile(r'—')  # Em dash to replace with space
 collapse_punct = re.compile(rf'[{ESCAPED_SPEAKABLE}][\s{ESCAPED_SPEAKABLE}]*(?=[{ESCAPED_SPEAKABLE}])')
 
 def clean_string(text):
     """
     Remove non-alphanumeric chars, keep only speakable punctuation,
-    normalize quotes, and collapse multiple punctuation to keep only the last one.
+    normalize quotes, replace em dashes with spaces, and collapse multiple punctuation to keep only the last one.
     """
     # First, remove all characters that aren't alphanumeric, whitespace, or punctuation
     step1 = remove_unwanted.sub('', text)
     
+    # Replace em dashes with spaces
+    step2 = replace_em_dash.sub(' ', step1)
+    
     # Normalize smart quotes and backticks to standard quotes
-    step2 = normalize_quotes.sub(lambda m: '"' if m.group() in '""' else "'", step1)
+    step3 = normalize_quotes.sub(lambda m: '"' if m.group() in '""' else "'", step2)
     
     # Remove unspeakable punctuation (symbols like @#$%^&*()[]{}|\ etc.)
-    step3 = remove_unspeakable.sub('', step2)
+    step4 = remove_unspeakable.sub('', step3)
     
     # Then collapse sequences of speakable punctuation (with optional whitespace) to keep only the last one
-    step4 = collapse_punct.sub('', step3)
+    step5 = collapse_punct.sub('', step4)
     
     # Clean up any remaining multiple whitespace
-    result = re.sub(r'\s+', ' ', step4).strip()
+    result = re.sub(r'\s+', ' ', step5).strip()
     
     return result
+
 
 def main(file_path, pick_manually, speed, book_year='', output_folder='.',
          max_chapters=None, max_sentences=None, selected_chapters=None, post_event=None, audio_prompt_wav=None, batch_files=None, ignore_list=None):
