@@ -222,12 +222,16 @@ def clean_string(text):
 
 
 def main(file_path, pick_manually, speed, book_year='', output_folder='.',
-         max_chapters=None, max_sentences=None, selected_chapters=None, post_event=None, audio_prompt_wav=None, batch_files=None, ignore_list=None):
+         max_chapters=None, max_sentences=None, selected_chapters=None, post_event=None, audio_prompt_wav=None, batch_files=None, ignore_list=None, should_stop=None):
     """
     Main entry point for audiobook synthesis.
     - ignore_list: list of chapter names to ignore (case-insensitive substring match)
     - batch_files: if provided, a list of file paths to process sequentially
+    - should_stop: optional callback, returns True if synthesis should be interrupted
     """
+    if should_stop is None:
+        should_stop = lambda: False
+
     if batch_files is not None:
         # Sequentially process each file in batch_files
         for batch_file in batch_files:
@@ -244,10 +248,13 @@ def main(file_path, pick_manually, speed, book_year='', output_folder='.',
                 post_event=post_event,
                 audio_prompt_wav=audio_prompt_wav,
                 batch_files=None,  # Prevent infinite recursion
-                ignore_list=ignore_list
+                ignore_list=ignore_list,
+                should_stop=should_stop
             )
             if post_event:
                 post_event('CORE_FILE_FINISHED', file_path=batch_file)
+            if should_stop():
+                break
         return
 
     if post_event: post_event('CORE_STARTED')
@@ -361,6 +368,9 @@ def main(file_path, pick_manually, speed, book_year='', output_folder='.',
     chapter_wav_files = []
     nlp = get_nlp()
     for i, chapter in enumerate(selected_chapters, start=1):
+        if should_stop():
+            print("Synthesis interrupted by user (chapter loop).")
+            break
         if max_chapters and i > max_chapters: break
         lines = chapter.extracted_text.splitlines()
         text = "\n".join(
@@ -399,8 +409,12 @@ def main(file_path, pick_manually, speed, book_year='', output_folder='.',
             speed,
             stats,
             post_event=post_event,
-            max_sentences=max_sentences
+            max_sentences=max_sentences,
+            should_stop=should_stop
         )
+        if should_stop():
+            print("Synthesis interrupted by user (after audio_segments).")
+            break
         if audio_segments:
             final_audio = np.concatenate(audio_segments)
             soundfile.write(chapter_wav_path, final_audio, sample_rate)
@@ -476,12 +490,18 @@ def print_selected_chapters(document_chapters, chapters):
 
 
 def gen_audio_segments(cb_model, nlp, text, speed, stats=None, max_sentences=None,
-                       post_event=None):  # Use spacy to split into sentences
+                       post_event=None, should_stop=None):  # Use spacy to split into sentences
+
+    if should_stop is None:
+        should_stop = lambda: False
 
     audio_segments = []
     doc = nlp(text)
     sentences = list(doc.sents)
     for i, sent in enumerate(sentences):
+        if should_stop():
+            print("Synthesis interrupted by user (sentence loop).")
+            return audio_segments
         if max_sentences and i > max_sentences: break
         # ChatterboxTTS does not use speed param, but keep for compatibility
         wav = cb_model.generate(sent.text)

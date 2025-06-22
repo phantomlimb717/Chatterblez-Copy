@@ -75,7 +75,7 @@ class CoreThread(QThread):
     def run(self):
         try:
             print("CoreThread started with params:", self.params)
-            core.main(**self.params, post_event=self.post_event)
+            core.main(**self.params, post_event=self.post_event, should_stop=lambda: self._should_stop)
         except Exception as exc:
             print("CoreThread exception:", exc)
             self.error.emit(str(exc))
