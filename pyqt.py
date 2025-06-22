@@ -240,6 +240,9 @@ class MainWindow(QMainWindow):
         ext = file_path.suffix.lower()
         self.document_chapters.clear()
         self.chapter_list.clear()
+        
+        # Reset elapsed time when loading a new file
+        self.time_label.setText("Elapsed: 00:00 | ETA: --:--")
 
         if ext == ".epub":
             from ebooklib import epub
@@ -314,14 +317,25 @@ class MainWindow(QMainWindow):
             pass
         # Set self.batch_files so it is available in start_synthesis
         self.batch_files = batch_files
+        
+        # Reset elapsed time when loading batch mode
+        self.time_label.setText("Elapsed: 00:00 | ETA: --:--")
+        
         # Show batch panel
         self.show_batch_panel(batch_files)
 
     def show_batch_panel(self, batch_files):
+        # Store references to original panels before removing them
+        self.original_panels = []
+        for i in range(self.splitter.count()):
+            widget = self.splitter.widget(i)
+            self.original_panels.append(widget)
+        
         # Remove all widgets from splitter
         for i in reversed(range(self.splitter.count())):
             widget = self.splitter.widget(i)
             self.splitter.widget(i).setParent(None)
+        
         # Create a vertical panel with batch table and controls
         batch_panel = QWidget()
         layout = QVBoxLayout(batch_panel)
@@ -760,14 +774,35 @@ def on_batch_progress_update(self, completed, total, elapsed_str, eta_str):
     self.time_label.setText(f"Batch Elapsed: {elapsed_str} | Batch ETA: {eta_str}")
     QApplication.processEvents()
 
+def restore_original_panels(self):
+    """Restore the original left and right panels after batch mode"""
+    if hasattr(self, 'original_panels') and self.original_panels:
+        # Remove batch panel
+        if hasattr(self, 'batch_panel') and self.batch_panel:
+            self.batch_panel.setParent(None)
+        
+        # Restore original panels
+        for panel in self.original_panels:
+            self.splitter.addWidget(panel)
+        
+        # Restore original sizes
+        self.splitter.setSizes([300, 900])
+        
+        # Clear the stored panels
+        self.original_panels = []
+
 def on_batch_finished(self):
     self.batch_progress_label.hide()
     self.batch_progress_bar.hide()
-    self.time_label.setText("Elapsed: 00:00 | ETA: --:--")
+    
+    # Restore original panels after batch mode
+    self.restore_original_panels()
+    
     self.on_core_finished()
 
-# Patch MainWindow to add batch progress handlers
+# Patch MainWindow to add batch progress handlers and restore method
 MainWindow.on_batch_progress_update = on_batch_progress_update
+MainWindow.restore_original_panels = restore_original_panels
 MainWindow.on_batch_finished = on_batch_finished
 
 class SettingsDialog(QDialog):

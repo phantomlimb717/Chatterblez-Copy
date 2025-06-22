@@ -34,10 +34,19 @@ from functools import lru_cache
 
 sample_rate = 24000
 
-# ---------------------------------------------------------------------------
-# GLOBALS / SINGLETONS
-# ---------------------------------------------------------------------------
-allowed_chars_re = re.compile(r"[^’a-zA-Z0-9\s.,;:'\"!?()\[\]-]")
+import string
+
+# Set of all punctuation characters to preserve (from `string.punctuation`)
+PUNCTUATION = set(string.punctuation)
+
+# Precompiled regex: sequences of 2 or more non-alphanumeric characters
+non_alnum_seq_re = re.compile(r'[^a-zA-Z0-9]{2,}')
+
+# Substitution function
+def replace_non_alnum_sequence(match):
+    first = match.group(0)[0]
+    return first if first in PUNCTUATION else ''
+
 
 
 @lru_cache(maxsize=1)
@@ -172,6 +181,39 @@ def replace_preserve_case(text, old, new):
 
     return text
 
+SPEAKABLE_PUNCT = '.!?,:;-\'"'
+ESCAPED_SPEAKABLE = re.escape(SPEAKABLE_PUNCT)
+
+# All punctuation for removal purposes
+ALL_PUNCT = re.escape(string.punctuation)
+
+# Compiled regex patterns
+remove_unwanted = re.compile(rf'[^\w\s{ALL_PUNCT}]+')
+remove_unspeakable = re.compile(rf'[{re.escape("".join(set(string.punctuation) - set(SPEAKABLE_PUNCT)))}]+')
+normalize_quotes = re.compile(r'[""''`]')  # Smart quotes and backticks to normalize
+collapse_punct = re.compile(rf'[{ESCAPED_SPEAKABLE}][\s{ESCAPED_SPEAKABLE}]*(?=[{ESCAPED_SPEAKABLE}])')
+
+def clean_string(text):
+    """
+    Remove non-alphanumeric chars, keep only speakable punctuation,
+    normalize quotes, and collapse multiple punctuation to keep only the last one.
+    """
+    # First, remove all characters that aren't alphanumeric, whitespace, or punctuation
+    step1 = remove_unwanted.sub('', text)
+    
+    # Normalize smart quotes and backticks to standard quotes
+    step2 = normalize_quotes.sub(lambda m: '"' if m.group() in '""' else "'", step1)
+    
+    # Remove unspeakable punctuation (symbols like @#$%^&*()[]{}|\ etc.)
+    step3 = remove_unspeakable.sub('', step2)
+    
+    # Then collapse sequences of speakable punctuation (with optional whitespace) to keep only the last one
+    step4 = collapse_punct.sub('', step3)
+    
+    # Clean up any remaining multiple whitespace
+    result = re.sub(r'\s+', ' ', step4).strip()
+    
+    return result
 
 def main(file_path, pick_manually, speed, book_year='', output_folder='.',
          max_chapters=None, max_sentences=None, selected_chapters=None, post_event=None, audio_prompt_wav=None, batch_files=None, ignore_list=None):
@@ -319,23 +361,11 @@ def main(file_path, pick_manually, speed, book_year='', output_folder='.',
             cleaned_line
             for line in lines
             if (
-                cleaned_line := allowed_chars_re.sub(
-                    '',
-                    line.replace("“", '"')
-                    .replace("”", '"')
-                    .replace("‘", "'")
-                    .replace("’", "'")
-                )
+                cleaned_line := clean_string(line)
             ).strip() and re.search(r'\w', cleaned_line)
         )
         print(f'Chapter {i}: {text}')
-        bad_words = [
-            "mr.", "mrs.", "ms.", "dr."
-        ]
-        replacements = [
-            "Mister", "Misses", "Miss", "Doctor"
-        ]
-        text = replace_preserve_case(text, bad_words, replacements)
+        
         xhtml_file_name = re.sub(r'[\\/:*?"<>|]', '_', chapter.get_name()).replace(' ', '_').replace('.xhtml',
                                                                                                      '').replace(
             '.html', '')
@@ -398,7 +428,7 @@ def main(file_path, pick_manually, speed, book_year='', output_folder='.',
         try:
             concat_file_path = concat_wavs_with_ffmpeg(chapter_wav_files, output_folder, filename,
                                                        post_event=post_event)
-            create_m4b(concat_file_path, filename, book_year, cover_image, output_folder, post_event=post_event)
+            create_m4b(concat_file_path, filename, cover_image, output_folder, post_event=post_event)
             if post_event: post_event('CORE_FINISHED')
         except RuntimeError as e:
             print(f"Audiobook creation failed: {e}", file=sys.stderr)
@@ -674,11 +704,11 @@ def concat_wavs_with_ffmpeg(chapter_files, output_folder, filename, post_event=N
     return concat_file_path
 
 
-def create_m4b(concat_file_path, filename, book_year, cover_image, output_folder, post_event=None):
+def create_m4b(concat_file_path, filename, cover_image, output_folder, post_event=None):
     print('Creating M4B file...')
 
     original_name = Path(filename).with_suffix('').name  # removes old suffix
-    new_name = f"{book_year} - {original_name}.m4b"
+    new_name = f"{original_name}.m4b"
     final_filename = Path(output_folder) / new_name
     chapters_txt_path = Path(output_folder) / "chapters.txt"
     print('Creating M4B file...')
