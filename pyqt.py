@@ -584,6 +584,10 @@ class MainWindow(QMainWindow):
             print("Stop synthesis clicked")
             if self.core_thread is not None:
                 self.core_thread.stop()
+            # Stop batch worker if in batch mode
+            if hasattr(self, "batch_worker") and self.batch_worker is not None:
+                print("[DEBUG] MainWindow: calling batch_worker.stop()")
+                self.batch_worker.stop()
             self.synth_running = False
             self.start_btn.setText("Start Synthesis")
 
@@ -704,6 +708,11 @@ class BatchWorker(QThread):
         self.output_dir = output_dir
         self.ignore_list = ignore_list
         self.wav_path = wav_path
+        self._should_stop = False
+
+    def stop(self):
+        print("[DEBUG] BatchWorker.stop() called")
+        self._should_stop = True
 
     def run(self):
         import core
@@ -718,6 +727,9 @@ class BatchWorker(QThread):
                 self.chapter_progress.emit(stats)
 
         for file_path in self.selected_files:
+            if self._should_stop:
+                print("[DEBUG] BatchWorker.run() detected stop, breaking batch loop")
+                break
             ext = os.path.splitext(file_path)[1].lower()
             chapters = []
             if ext == ".epub":
@@ -756,7 +768,8 @@ class BatchWorker(QThread):
                 output_folder=self.output_dir,
                 selected_chapters=filtered_chapters,
                 audio_prompt_wav=self.wav_path if self.wav_path else None,
-                post_event=post_event
+                post_event=post_event,
+                should_stop=lambda: self._should_stop
             )
             completed += 1
             now = time.time()
