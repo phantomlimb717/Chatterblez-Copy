@@ -241,6 +241,9 @@ class MainWindow(QMainWindow):
 
     # ----------------- Load e-book -----------------
     def load_ebook(self, file_path: Path):
+        # Restore original panels if coming from batch mode
+        if hasattr(self, "restore_original_panels"):
+            self.restore_original_panels()
         self.selected_file_path = str(file_path)
         ext = file_path.suffix.lower()
         self.document_chapters.clear()
