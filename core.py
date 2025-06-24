@@ -47,7 +47,7 @@ def replace_non_alnum_sequence(match):
     first = match.group(0)[0]
     return first if first in PUNCTUATION else ''
 
-
+allowed_chars_re = re.compile(r"[^’\"a-zA-Z0-9\s.,;:'\"-]")
 
 @lru_cache(maxsize=1)
 def get_nlp():
@@ -200,11 +200,11 @@ def clean_string(text):
     Remove non-alphanumeric chars, keep only speakable punctuation,
     normalize quotes, replace em dashes with spaces, and collapse multiple punctuation to keep only the last one.
     """
-    # First, remove all characters that aren't alphanumeric, whitespace, or punctuation
-    step1 = remove_unwanted.sub('', text)
+    # Replace em dashes with spaces FIRST before any other processing
+    step1 = replace_em_dash.sub(' ', text)
     
-    # Replace em dashes with spaces
-    step2 = replace_em_dash.sub(' ', step1)
+    # Remove all characters that aren't alphanumeric, whitespace, or punctuation
+    step2 = remove_unwanted.sub('', step1)
     
     # Normalize smart quotes and backticks to standard quotes
     step3 = normalize_quotes.sub(lambda m: '"' if m.group() in '""' else "'", step2)
@@ -221,6 +221,34 @@ def clean_string(text):
     return result
 
 
+# Step 1: Normalize curly quotes
+def normalize_quotes(text: str) -> str:
+    return (
+        text.replace("“", '"')
+            .replace("”", '"')
+            .replace("‘", "'")
+            .replace("’", "'")
+    )
+
+# Step 2: Replace disallowed characters (not letter/digit/space/period/comma/apos) with space
+non_allowed_re = re.compile(r"[^a-zA-Z0-9\s.,']+")
+
+# Step 3: Collapse multiple spaces
+space_re = re.compile(r'\s+')
+
+# Step 4: Remove space(s) before a period
+space_before_period_re = re.compile(r'\s+\.')
+
+# Step 5: Collapse consecutive periods
+multiple_periods_re = re.compile(r'\.{2,}')
+
+def clean_line(line: str) -> str:
+    line = normalize_quotes(line)
+    line = non_allowed_re.sub(' ', line)                      # Remove unwanted chars
+    line = space_before_period_re.sub('.', line)              # Remove space before .
+    line = multiple_periods_re.sub('.', line)                 # Remove repeated .
+    line = space_re.sub(' ', line)                            # Collapse spaces
+    return line.strip()
 def main(file_path, pick_manually, speed, book_year='', output_folder='.',
          max_chapters=None, max_sentences=None, selected_chapters=None, post_event=None, audio_prompt_wav=None, batch_files=None, ignore_list=None, should_stop=None):
     """
@@ -377,7 +405,7 @@ def main(file_path, pick_manually, speed, book_year='', output_folder='.',
             cleaned_line
             for line in lines
             if (
-                cleaned_line := clean_string(line)
+                cleaned_line :=  clean_line(line)
             ).strip() and re.search(r'\w', cleaned_line)
         )
         print(f'Chapter {i}: {text}')
@@ -447,8 +475,16 @@ def main(file_path, pick_manually, speed, book_year='', output_folder='.',
         create_index_file(title, creator, chapter_wav_files, output_folder)
         try:
             concat_file_path = concat_wavs_with_ffmpeg(chapter_wav_files, output_folder, filename,
-                                                       post_event=post_event)
-            create_m4b(concat_file_path, filename, cover_image, output_folder, post_event=post_event)
+                                                       post_event=post_event, should_stop=should_stop)
+            if should_stop() or concat_file_path is None:
+                print("Synthesis interrupted before or during FFmpeg concat.")
+                allow_sleep()
+                return
+            create_m4b(concat_file_path, filename, cover_image, output_folder, post_event=post_event, should_stop=should_stop)
+            if should_stop():
+                print("Synthesis interrupted before or during FFmpeg m4b creation.")
+                allow_sleep()
+                return
             if post_event: post_event('CORE_FINISHED')
         except RuntimeError as e:
             print(f"Audiobook creation failed: {e}", file=sys.stderr)
@@ -591,7 +627,7 @@ def enqueue_output(stream, queue_obj):
     stream.close()
 
 
-def concat_wavs_with_ffmpeg(chapter_files, output_folder, filename, post_event=None):
+def concat_wavs_with_ffmpeg(chapter_files, output_folder, filename, post_event=None, should_stop=None):
     base_filename_stem = Path(filename).stem
     wav_list_txt = Path(output_folder) / f"{base_filename_stem}_wav_list.txt"
     with open(wav_list_txt, 'w') as f:
@@ -626,6 +662,8 @@ def concat_wavs_with_ffmpeg(chapter_files, output_folder, filename, post_event=N
         text=True,
         bufsize=1
     )
+    if should_stop is None:
+        should_stop = lambda: False
 
     q_stdout = queue.Queue()
     q_stderr = queue.Queue()
@@ -656,6 +694,11 @@ def concat_wavs_with_ffmpeg(chapter_files, output_folder, filename, post_event=N
 
     try:
         while process.poll() is None or not q_stdout.empty() or not q_stderr.empty():
+            if should_stop():
+                print("Synthesis interrupted by user (ffmpeg concat). Terminating FFmpeg process.")
+                process.terminate()
+                process.wait()
+                return None
             # Process stdout for progress
             try:
                 line_stdout = q_stdout.get(timeout=0.05)
@@ -730,7 +773,7 @@ def concat_wavs_with_ffmpeg(chapter_files, output_folder, filename, post_event=N
     return concat_file_path
 
 
-def create_m4b(concat_file_path, filename, cover_image, output_folder, post_event=None):
+def create_m4b(concat_file_path, filename, cover_image, output_folder, post_event=None, should_stop=None):
     print('Creating M4B file...')
 
     original_name = Path(filename).with_suffix('').name  # removes old suffix
@@ -798,6 +841,8 @@ def create_m4b(concat_file_path, filename, cover_image, output_folder, post_even
         text=True,
         bufsize=1
     )
+    if should_stop is None:
+        should_stop = lambda: False
 
     q_stdout = queue.Queue()
     q_stderr = queue.Queue()
@@ -827,6 +872,11 @@ def create_m4b(concat_file_path, filename, cover_image, output_folder, post_even
 
     try:
         while process.poll() is None or not q_stdout.empty() or not q_stderr.empty():
+            if should_stop():
+                print("Synthesis interrupted by user (ffmpeg m4b). Terminating FFmpeg process.")
+                process.terminate()
+                process.wait()
+                return
             # Process stdout for progress
             try:
                 line_stdout = q_stdout.get(timeout=0.05)
