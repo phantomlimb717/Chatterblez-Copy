@@ -219,7 +219,13 @@ class MainWindow(QMainWindow):
 
         # Time/ETA label
         self.time_label = QLabel("Elapsed: 00:00 | ETA: --:--")
-        right_layout.addWidget(self.time_label)
+        # Task label (to the right of ETA)
+        self.task_label = QLabel("")
+        task_eta_layout = QHBoxLayout()
+        task_eta_layout.addWidget(self.time_label)
+        task_eta_layout.addWidget(self.task_label)
+        task_eta_layout.addStretch()
+        right_layout.addLayout(task_eta_layout)
 
         splitter.setSizes([300, 900])
 
@@ -600,6 +606,7 @@ class MainWindow(QMainWindow):
         self.start_time = time.time()
         self.time_label.setText("Elapsed: 00:00 | ETA: --:--")
         self.time_label.show()
+        self.set_task_label("Synthesizing")
 
     def on_core_progress(self, stats: SimpleNamespace):
         self.progress_bar.setValue(int(stats.progress))
@@ -629,6 +636,8 @@ class MainWindow(QMainWindow):
         self.progress_bar.setValue(100)
         self.synth_running = False
         self.start_btn.setText("Start Synthesis")
+        self.set_task_label("")
+        # To set "Transcoding" or "Multiplexing", call self.set_task_label("Transcoding") or self.set_task_label("Multiplexing") at the appropriate place in your workflow.
         # Delete all .wav files in the output folder with extra debug output
         import glob
         out_dir = os.path.abspath(self.output_dir_edit.text())
@@ -665,6 +674,10 @@ class MainWindow(QMainWindow):
         self.start_btn.setText("Start Synthesis")
         print(f"Error: {message}")
         QMessageBox.critical(self, "Error", message)
+
+    def set_task_label(self, task: str):
+        """Set the current task label (e.g., Synthesizing, Transcoding, Multiplexing)."""
+        self.task_label.setText(task)
 
     def write_cli_command(self, file_path=None, batch_folder=None, output_folder=".", filterlist="", wav_path=None, speed=1.0, is_batch=False):
         """
@@ -811,8 +824,17 @@ def restore_original_panels(self):
         # Restore original sizes
         self.splitter.setSizes([300, 900])
         
+        # Reassign right_panel to the correct widget in the splitter
+        if self.splitter.count() > 1:
+            self.right_panel = self.splitter.widget(1)
+            for child in self.right_panel.findChildren(QWidget):
+                child.show()
+        
         # Clear the stored panels
         self.original_panels = []
+        
+        # Rebuild the UI to ensure all controls are present and visible
+        self._build_ui()
 
 def on_batch_finished(self):
     self.batch_progress_label.hide()
