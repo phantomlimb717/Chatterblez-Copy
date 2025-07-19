@@ -1,7 +1,3 @@
-Here’s the updated `README.md` content with a complete **FFmpeg installation section** included under the "Installation & Setup" heading. You can copy this and replace your current README content:
-
----
-
 # Chatterblez 🗣️📖✨
 
 ## 🚀 Transform Your PDFs & EPUBS into Engaging Audiobooks! 🎧
