@@ -540,7 +540,7 @@ def gen_audio_segments(cb_model, nlp, text, speed, stats=None, max_sentences=Non
             return audio_segments
         if max_sentences and i > max_sentences: break
         # ChatterboxTTS does not use speed param, but keep for compatibility
-        wav = cb_model.generate(sent.text)
+        wav = cb_model.generate(sent.text,temperature=0.1)
         audio_segments.append(wav.numpy().flatten())
         if stats:
             update_stats(stats, len(sent.text))
