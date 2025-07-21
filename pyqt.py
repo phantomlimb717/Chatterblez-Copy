@@ -248,7 +248,7 @@ class MainWindow(QMainWindow):
             self.load_ebook(Path(file_path))
 
     # ----------------- Load e-book -----------------
-    def load_ebook(self, file_path: Path):
+    """    def load_ebook(self, file_path: Path):
         # Restore original panels if coming from batch mode
         if hasattr(self, "restore_original_panels"):
             self.restore_original_panels()
@@ -260,13 +260,19 @@ class MainWindow(QMainWindow):
         # Reset elapsed time when loading a new file
         self.time_label.setText("Elapsed: 00:00 | ETA: --:--")
 
+        # Get ignore list from settings
+        ignore_csv = self.settings.value("batch_ignore_chapter_names", "", type=str)
+        ignore_list = [name.strip().lower() for name in ignore_csv.split(",") if name.strip()]
+
         if ext == ".epub":
             from ebooklib import epub
             book = epub.read_epub(str(file_path))
             self.document_chapters = core.find_document_chapters_and_extract_texts(book)
             good_chapters = core.find_good_chapters(self.document_chapters)
             for chap in self.document_chapters:
-                chap.is_selected = chap in good_chapters
+                chap_name_lower = chap.get_name().lower()
+                is_ignored = any(ignore_name in chap_name_lower for ignore_name in ignore_list)
+                chap.is_selected = chap in good_chapters and not is_ignored
                 item = QListWidgetItem(chap.get_name())
                 item.setCheckState(Qt.CheckState.Checked if chap.is_selected else Qt.CheckState.Unchecked)
                 self.chapter_list.addItem(item)
@@ -277,7 +283,7 @@ class MainWindow(QMainWindow):
             return
 
         if self.document_chapters:
-            self.chapter_list.setCurrentRow(0)
+            self.chapter_list.setCurrentRow(0)""
 
     def load_pdf(self, file_path: Path):
         import PyPDF2

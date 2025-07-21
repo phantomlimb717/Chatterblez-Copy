@@ -1,0 +1,1 @@
+feat: apply chapter ignore list in single file mode
