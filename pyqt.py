@@ -248,7 +248,7 @@ class MainWindow(QMainWindow):
             self.load_ebook(Path(file_path))
 
     # ----------------- Load e-book -----------------
-    """    def load_ebook(self, file_path: Path):
+    def load_ebook(self, file_path: Path):
         # Restore original panels if coming from batch mode
         if hasattr(self, "restore_original_panels"):
             self.restore_original_panels()
@@ -283,7 +283,7 @@ class MainWindow(QMainWindow):
             return
 
         if self.document_chapters:
-            self.chapter_list.setCurrentRow(0)""
+            self.chapter_list.setCurrentRow(0)
 
     def load_pdf(self, file_path: Path):
         import PyPDF2
