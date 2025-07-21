@@ -189,6 +189,8 @@ class MainWindow(QMainWindow):
         controls_layout.addWidget(self.wav_button)
 
         # Output dir
+        output_label = QLabel("Output Folder:")
+        controls_layout.addWidget(output_label)
         self.output_dir_edit = QLineEdit(os.path.abspath("."))
         self.output_dir_edit.setReadOnly(True)
         controls_layout.addWidget(self.output_dir_edit)
@@ -613,9 +615,16 @@ class MainWindow(QMainWindow):
         # Update elapsed time and ETA
         if hasattr(self, "start_time"):
             elapsed = int(time.time() - self.start_time)
-            elapsed_min = elapsed // 60
-            elapsed_sec = elapsed % 60
-            elapsed_str = f"{elapsed_min:02d}:{elapsed_sec:02d}"
+            days, remainder = divmod(elapsed, 86400)
+            hours, remainder = divmod(remainder, 3600)
+            minutes, seconds = divmod(remainder, 60)
+
+            if days > 0:
+                elapsed_str = f"{int(days)}d {int(hours):02d}h"
+            elif hours > 0:
+                elapsed_str = f"{int(hours):02d}h {int(minutes):02d}m"
+            else:
+                elapsed_str = f"{int(minutes):02d}:{int(seconds):02d}"
         else:
             elapsed_str = "00:00"
         eta_str = getattr(stats, "eta", "--:--")
@@ -637,7 +646,7 @@ class MainWindow(QMainWindow):
         self.synth_running = False
         self.start_btn.setText("Start Synthesis")
         self.set_task_label("")
-        # To set "Transcoding" or "Multiplexing", call self.set_task_label("Transcoding") or self.set_task_label("Multiplexing") at the appropriate place in your workflow.
+        # To set "Transcoding" or "Multiplexing", call  or self.set_task_label("Multiplexing") at the appropriate place in your workflow.
         # Delete all .wav files in the output folder with extra debug output
         import glob
         out_dir = os.path.abspath(self.output_dir_edit.text())
@@ -790,9 +799,16 @@ class BatchWorker(QThread):
             completed += 1
             now = time.time()
             elapsed = int(now - batch_start_time)
-            elapsed_min = elapsed // 60
-            elapsed_sec = elapsed % 60
-            elapsed_str = f"{elapsed_min:02d}:{elapsed_sec:02d}"
+            days, remainder = divmod(elapsed, 86400)
+            hours, remainder = divmod(remainder, 3600)
+            minutes, seconds = divmod(remainder, 60)
+
+            if days > 0:
+                elapsed_str = f"{int(days)}d {int(hours):02d}h"
+            elif hours > 0:
+                elapsed_str = f"{int(hours):02d}h {int(minutes):02d}m"
+            else:
+                elapsed_str = f"{int(minutes):02d}:{int(seconds):02d}"
             if completed > 0:
                 total_est = elapsed / completed
                 eta = int(total_est * total - elapsed)
@@ -835,6 +851,10 @@ def restore_original_panels(self):
         
         # Rebuild the UI to ensure all controls are present and visible
         self._build_ui()
+        # Restore output folder path to the new output_dir_edit
+        output_folder = self.settings.value("output_folder", "", type=str)
+        if output_folder and hasattr(self, "output_dir_edit"):
+            self.output_dir_edit.setText(output_folder)
 
 def on_batch_finished(self):
     self.batch_progress_label.hide()
@@ -842,7 +862,7 @@ def on_batch_finished(self):
     
     # Restore original panels after batch mode
     self.restore_original_panels()
-    
+    self.set_task_label("")
     self.on_core_finished()
 
 # Patch MainWindow to add batch progress handlers and restore method
