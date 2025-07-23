@@ -15,9 +15,9 @@ import time
 from pathlib import Path
 from types import SimpleNamespace
 
-from PyQt6.QtCore import Qt, QThread, pyqtSignal, QObject, QSettings
-from PyQt6.QtGui import QAction
-from PyQt6.QtWidgets import (
+from PySide6.QtCore import Qt, QThread, Signal, QObject, QSettings
+from PySide6.QtGui import QAction
+from PySide6.QtWidgets import (
     QApplication,
     QFileDialog,
     QTableWidget,
@@ -43,12 +43,12 @@ from PyQt6.QtWidgets import (
 import core
 
 class CoreThread(QThread):
-    core_started = pyqtSignal()
-    progress = pyqtSignal(object)
-    chapter_started = pyqtSignal(int)
-    chapter_finished = pyqtSignal(int)
-    finished = pyqtSignal()
-    error = pyqtSignal(str)
+    core_started = Signal()
+    progress = Signal(object)
+    chapter_started = Signal(int)
+    chapter_finished = Signal(int)
+    finished = Signal()
+    error = Signal(str)
 
     def __init__(self, **params):
         super().__init__()
@@ -90,7 +90,7 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("Chatterblez – Audiobook Generator")
         self.resize(1200, 800)
 
-        self.settings = QSettings("Chatterblez", "chatterblez-pyqt")
+        self.settings = QSettings("Chatterblez", "chatterblez-pyside")
         self.document_chapters: list = []
         self.selected_file_path: str | None = None
         self.selected_wav_path: str | None = None
@@ -726,12 +726,12 @@ class MainWindow(QMainWindow):
             print(f"Failed to write CLI command: {e}")
         return cli_command
 
-from PyQt6.QtCore import pyqtSignal
+from PySide6.QtCore import Signal
 
 class BatchWorker(QThread):
-    progress_update = pyqtSignal(int, int, str, str)  # completed, total, elapsed_str, eta_str
-    chapter_progress = pyqtSignal(object)  # stats object from core
-    finished = pyqtSignal()
+    progress_update = Signal(int, int, str, str)  # completed, total, elapsed_str, eta_str
+    chapter_progress = Signal(object)  # stats object from core
+    finished = Signal()
 
     def __init__(self, selected_files, output_dir, ignore_list, wav_path):
         super().__init__()
@@ -865,9 +865,10 @@ def restore_original_panels(self):
 def on_batch_finished(self):
     self.batch_progress_label.hide()
     self.batch_progress_bar.hide()
-    
+
     # Restore original panels after batch mode
-    self.restore_original_panels()
+    if hasattr(self, "restore_original_panels"):
+        self.restore_original_panels()
     self.set_task_label("")
     self.on_core_finished()
 
@@ -888,7 +889,7 @@ class SettingsDialog(QDialog):
         layout.addWidget(chapter_names_label)
         self.chapter_names_edit = QLineEdit()
         layout.addWidget(self.chapter_names_edit)
-        settings = QSettings("chatterblez", "chatterblez-pyqt")
+        settings = QSettings("chatterblez", "chatterblez-pyside")
         value = settings.value("batch_ignore_chapter_names", "", type=str)
         self.chapter_names_edit.setText(value)
         self.chapter_names_edit.textChanged.connect(self.save_chapter_names)
@@ -899,7 +900,7 @@ class SettingsDialog(QDialog):
         btn_box.addWidget(ok_btn)
         layout.addLayout(btn_box)
     def save_chapter_names(self, text):
-        settings = QSettings("chatterblez", "chatterblez-pyqt")
+        settings = QSettings("chatterblez", "chatterblez-pyside")
         settings.setValue("batch_ignore_chapter_names", text)
 
 class BatchFilesPanel(QWidget):

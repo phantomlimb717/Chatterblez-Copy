@@ -87,9 +87,78 @@ ffmpeg -version
 
 ---
 
-### 🚀 Usage (Coming Soon!)
+### 🚀 Usage
 
-Detailed usage instructions, including how to convert your first PDF or EPUB, will be added here shortly! Stay tuned! ⏳
+Here's how to use Chatterblez from the command line:
+
+**Basic Conversion (Single File):**
+
+To convert a single EPUB or PDF file, use the `-f` or `--file` argument:
+
+```bash
+python cli.py -f "path/to/your/book.epub"
+```
+
+The output audiobook will be saved in the current directory.
+
+**Specifying an Output Folder:**
+
+You can specify a different output folder using the `-o` or `--output` argument:
+
+```bash
+python cli.py -f "path/to/your/book.pdf" -o "path/to/output/folder"
+```
+
+**Batch Processing:**
+
+To convert all supported files in a directory, use the `-b` or `--batch` argument:
+
+```bash
+python cli.py -b "path/to/your/books_folder"
+```
+
+**Advanced Options:**
+
+*   **`--filterlist`**: A comma-separated list of chapter names to ignore (case-insensitive).
+    ```bash
+    python cli.py -f "book.epub" --filterlist "Contents,Preface"
+    ```
+*   **`--wav`**: Path to a WAV file for voice conditioning (audio prompt).
+    ```bash
+    python cli.py -f "book.epub" --wav "path/to/your/voice.wav"
+    ```
+*   **`--speed`**: Speech speed (default: 1.0).
+    ```bash
+    python cli.py -f "book.epub" --speed 1.2
+    ```
+*   **`--cuda`**: Use GPU for faster processing (if available).
+    ```bash
+    python cli.py -f "book.epub" --cuda
+    ```
+
+---
+
+### 🖼️ GUI Usage
+
+Chatterblez also includes a graphical user interface (GUI) for a more interactive experience.
+
+**Launching the GUI:**
+
+To launch the GUI, run the `pyside.py` script:
+
+```bash
+python pyside.py
+```
+
+**Features:**
+
+*   **File -> Open**: Load a single EPUB or PDF file.
+*   **File -> Batch Mode**: Process all supported files in a selected directory.
+*   **Chapter List**: View and select which chapters to include in the audiobook.
+*   **Text Preview**: See the extracted text from the selected chapter.
+*   **Voice Selection**: Choose a custom WAV file for voice conditioning.
+*   **Output Folder**: Specify where to save the generated audiobook.
+*   **Real-time Progress**: Monitor the progress of the audiobook creation process.
 
 ---
 
