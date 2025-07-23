@@ -250,7 +250,8 @@ def clean_line(line: str) -> str:
     line = space_re.sub(' ', line)                            # Collapse spaces
     return line.strip()
 def main(file_path, pick_manually, speed, book_year='', output_folder='.',
-         max_chapters=None, max_sentences=None, selected_chapters=None, post_event=None, audio_prompt_wav=None, batch_files=None, ignore_list=None, should_stop=None):
+         max_chapters=None, max_sentences=None, selected_chapters=None, post_event=None, audio_prompt_wav=None, batch_files=None, ignore_list=None, should_stop=None,
+         temperature=0.75, exaggeration=1.0, cfg_weight=3.0):
     """
     Main entry point for audiobook synthesis.
     - ignore_list: list of chapter names to ignore (case-insensitive substring match)
@@ -441,7 +442,10 @@ def main(file_path, pick_manually, speed, book_year='', output_folder='.',
             stats,
             post_event=post_event,
             max_sentences=max_sentences,
-            should_stop=should_stop
+            should_stop=should_stop,
+            temperature=temperature,
+            exaggeration=exaggeration,
+            cfg_weight=cfg_weight
         )
         if should_stop():
             print("Synthesis interrupted by user (after audio_segments).")
