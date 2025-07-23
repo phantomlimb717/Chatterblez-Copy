@@ -21,8 +21,8 @@ def cli_main():
 
     # TTS parameters
     parser.add_argument('--temperature', type=float, default=0.75, help='Temperature for sampling (default: 0.75)')
-    parser.add_argument('--exaggeration', type=float, default=1.0, help='Exaggeration factor (default: 1.0)')
-    parser.add_argument('--cfg-weight', type=float, default=3.0, help='CFG weight for guidance (default: 3.0)')
+    parser.add_argument('--exaggeration', type=float, default=0.5, help='Exaggeration factor (default: 0.5)')
+    parser.add_argument('--cfg-weight', type=float, default=0.5, help='CFG weight for guidance (default: 0.5)')
 
     if len(sys.argv) == 1:
         parser.print_help(sys.stderr)

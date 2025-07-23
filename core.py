@@ -251,7 +251,7 @@ def clean_line(line: str) -> str:
     return line.strip()
 def main(file_path, pick_manually, speed, book_year='', output_folder='.',
          max_chapters=None, max_sentences=None, selected_chapters=None, post_event=None, audio_prompt_wav=None, batch_files=None, ignore_list=None, should_stop=None,
-         temperature=0.75, exaggeration=1.0, cfg_weight=3.0):
+         temperature=0.75, exaggeration=0.5, cfg_weight=0.5):
     """
     Main entry point for audiobook synthesis.
     - ignore_list: list of chapter names to ignore (case-insensitive substring match)
