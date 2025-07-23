@@ -138,6 +138,30 @@ python cli.py -b "path/to/your/books_folder"
 
 ---
 
+### 🖼️ GUI Usage
+
+Chatterblez also includes a graphical user interface (GUI) for a more interactive experience.
+
+**Launching the GUI:**
+
+To launch the GUI, run the `pyside.py` script:
+
+```bash
+python pyside.py
+```
+
+**Features:**
+
+*   **File -> Open**: Load a single EPUB or PDF file.
+*   **File -> Batch Mode**: Process all supported files in a selected directory.
+*   **Chapter List**: View and select which chapters to include in the audiobook.
+*   **Text Preview**: See the extracted text from the selected chapter.
+*   **Voice Selection**: Choose a custom WAV file for voice conditioning.
+*   **Output Folder**: Specify where to save the generated audiobook.
+*   **Real-time Progress**: Monitor the progress of the audiobook creation process.
+
+---
+
 ### 🙏 Acknowledgements
 
 * **Resemble-AI** for their incredible [Chatterbox-tts](https://github.com/resemble-ai/chatterbox) project. They're making AI voices sound truly human! 🗣️
