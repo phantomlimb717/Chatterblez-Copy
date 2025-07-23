@@ -177,7 +177,7 @@ Got ideas? Found a bug? Want to make Chatterblez even better? We'd love your con
 
 ### 📜 License
 
-\[Add your license information here, e.g., MIT License]
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ---
 
