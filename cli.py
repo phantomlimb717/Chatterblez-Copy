@@ -19,6 +19,11 @@ def cli_main():
     parser.add_argument('--speed', type=float, default=1.0, help='Speech speed (default: 1.0)')
     parser.add_argument('--cuda', default=False, help='Use GPU via Cuda in Torch if available', action='store_true')
 
+    # TTS parameters
+    parser.add_argument('--temperature', type=float, default=0.75, help='Temperature for sampling (default: 0.75)')
+    parser.add_argument('--exaggeration', type=float, default=1.0, help='Exaggeration factor (default: 1.0)')
+    parser.add_argument('--cfg-weight', type=float, default=3.0, help='CFG weight for guidance (default: 3.0)')
+
     if len(sys.argv) == 1:
         parser.print_help(sys.stderr)
         sys.exit(1)
@@ -69,7 +74,10 @@ def cli_main():
             output_folder=output_folder,
             batch_files=batch_files,
             ignore_list=ignore_list,
-            audio_prompt_wav=audio_prompt_wav
+            audio_prompt_wav=audio_prompt_wav,
+            temperature=args.temperature,
+            exaggeration=args.exaggeration,
+            cfg_weight=args.cfg_weight
         )
     # Single file mode
     elif args.file:
@@ -84,7 +92,10 @@ def cli_main():
             output_folder=output_folder,
             batch_files=None,
             ignore_list=ignore_list,
-            audio_prompt_wav=audio_prompt_wav
+            audio_prompt_wav=audio_prompt_wav,
+            temperature=args.temperature,
+            exaggeration=args.exaggeration,
+            cfg_weight=args.cfg_weight
         )
 
 if __name__ == '__main__':

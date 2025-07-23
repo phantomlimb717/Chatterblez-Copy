@@ -277,7 +277,10 @@ def main(file_path, pick_manually, speed, book_year='', output_folder='.',
                 audio_prompt_wav=audio_prompt_wav,
                 batch_files=None,  # Prevent infinite recursion
                 ignore_list=ignore_list,
-                should_stop=should_stop
+                should_stop=should_stop,
+                temperature=temperature,
+                exaggeration=exaggeration,
+                cfg_weight=cfg_weight
             )
             if post_event:
                 post_event('CORE_FILE_FINISHED', file_path=batch_file)
@@ -526,7 +529,8 @@ def print_selected_chapters(document_chapters, chapters):
 
 
 def gen_audio_segments(cb_model, nlp, text, speed, stats=None, max_sentences=None,
-                       post_event=None, should_stop=None):  # Use spacy to split into sentences
+                       post_event=None, should_stop=None,
+                       temperature=0.75, exaggeration=1.0, cfg_weight=3.0):  # Use spacy to split into sentences
 
     if should_stop is None:
         should_stop = lambda: False
@@ -540,7 +544,12 @@ def gen_audio_segments(cb_model, nlp, text, speed, stats=None, max_sentences=Non
             return audio_segments
         if max_sentences and i > max_sentences: break
         # ChatterboxTTS does not use speed param, but keep for compatibility
-        wav = cb_model.generate(sent.text,temperature=0.1)
+        wav = cb_model.generate(
+            sent.text,
+            temperature=temperature,
+            exaggeration=exaggeration,
+            cfg_weight=cfg_weight
+        )
         audio_segments.append(wav.numpy().flatten())
         if stats:
             update_stats(stats, len(sent.text))

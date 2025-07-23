@@ -540,11 +540,19 @@ class MainWindow(QMainWindow):
                 self.batch_start_time = time.time()
 
                 # Start batch worker thread
+                # Get TTS parameters from settings
+                temperature = float(self.settings.value("temperature", 0.75))
+                exaggeration = float(self.settings.value("exaggeration", 1.0))
+                cfg_weight = float(self.settings.value("cfg_weight", 3.0))
+
                 self.batch_worker = BatchWorker(
                     selected_files=selected_files,
                     output_dir=self.output_dir_edit.text(),
                     ignore_list=ignore_list,
-                    wav_path=self.selected_wav_path
+                    wav_path=self.selected_wav_path,
+                    temperature=temperature,
+                    exaggeration=exaggeration,
+                    cfg_weight=cfg_weight
                 )
                 self.batch_worker.progress_update.connect(self.on_batch_progress_update)
                 self.batch_worker.chapter_progress.connect(self.on_core_progress)
@@ -574,6 +582,11 @@ class MainWindow(QMainWindow):
             )
 
             print("About to create CoreThread with params:")
+            # Get TTS parameters from settings
+            temperature = float(self.settings.value("temperature", 0.75))
+            exaggeration = float(self.settings.value("exaggeration", 1.0))
+            cfg_weight = float(self.settings.value("cfg_weight", 3.0))
+
             params = dict(
                 file_path=self.selected_file_path,
                 pick_manually=False,
@@ -581,6 +594,9 @@ class MainWindow(QMainWindow):
                 output_folder=self.output_dir_edit.text(),
                 selected_chapters=selected_chapters,
                 audio_prompt_wav=self.selected_wav_path,
+                temperature=temperature,
+                exaggeration=exaggeration,
+                cfg_weight=cfg_weight,
             )
             print(params)
             try:
@@ -733,12 +749,15 @@ class BatchWorker(QThread):
     chapter_progress = Signal(object)  # stats object from core
     finished = Signal()
 
-    def __init__(self, selected_files, output_dir, ignore_list, wav_path):
+    def __init__(self, selected_files, output_dir, ignore_list, wav_path, temperature, exaggeration, cfg_weight):
         super().__init__()
         self.selected_files = selected_files
         self.output_dir = output_dir
         self.ignore_list = ignore_list
         self.wav_path = wav_path
+        self.temperature = temperature
+        self.exaggeration = exaggeration
+        self.cfg_weight = cfg_weight
         self._should_stop = False
 
     def stop(self):
@@ -800,7 +819,10 @@ class BatchWorker(QThread):
                 selected_chapters=filtered_chapters,
                 audio_prompt_wav=self.wav_path if self.wav_path else None,
                 post_event=post_event,
-                should_stop=lambda: self._should_stop
+                should_stop=lambda: self._should_stop,
+                temperature=self.temperature,
+                exaggeration=self.exaggeration,
+                cfg_weight=self.cfg_weight
             )
             completed += 1
             now = time.time()
@@ -883,25 +905,63 @@ class SettingsDialog(QDialog):
         self.setWindowTitle("Settings")
         self.setMinimumWidth(400)
         layout = QVBoxLayout(self)
+        self.settings = QSettings("chatterblez", "chatterblez-pyside")
+
+        # TTS parameters
+        tts_label = QLabel("<b>TTS Parameters</b>")
+        layout.addWidget(tts_label)
+
+        # Temperature
+        temp_layout = QHBoxLayout()
+        temp_layout.addWidget(QLabel("Temperature:"))
+        self.temp_edit = QLineEdit(self.settings.value("temperature", "0.75", type=str))
+        temp_layout.addWidget(self.temp_edit)
+        layout.addLayout(temp_layout)
+
+        # Exaggeration
+        exaggeration_layout = QHBoxLayout()
+        exaggeration_layout.addWidget(QLabel("Exaggeration:"))
+        self.exaggeration_edit = QLineEdit(self.settings.value("exaggeration", "1.0", type=str))
+        exaggeration_layout.addWidget(self.exaggeration_edit)
+        layout.addLayout(exaggeration_layout)
+
+        # CFG Weight
+        cfg_layout = QHBoxLayout()
+        cfg_layout.addWidget(QLabel("CFG Weight:"))
+        self.cfg_edit = QLineEdit(self.settings.value("cfg_weight", "3.0", type=str))
+        cfg_layout.addWidget(self.cfg_edit)
+        layout.addLayout(cfg_layout)
+
+        # Batch settings
         batch_label = QLabel("<b>Batch Settings</b>")
         layout.addWidget(batch_label)
         chapter_names_label = QLabel("Comma separated values of chapter names to ignore:")
         layout.addWidget(chapter_names_label)
         self.chapter_names_edit = QLineEdit()
         layout.addWidget(self.chapter_names_edit)
-        settings = QSettings("chatterblez", "chatterblez-pyside")
-        value = settings.value("batch_ignore_chapter_names", "", type=str)
+        value = self.settings.value("batch_ignore_chapter_names", "", type=str)
         self.chapter_names_edit.setText(value)
         self.chapter_names_edit.textChanged.connect(self.save_chapter_names)
+
+        # Connect signals to save settings
+        self.temp_edit.textChanged.connect(self.save_tts_settings)
+        self.exaggeration_edit.textChanged.connect(self.save_tts_settings)
+        self.cfg_edit.textChanged.connect(self.save_tts_settings)
+
         btn_box = QHBoxLayout()
         ok_btn = QPushButton("OK")
         ok_btn.clicked.connect(self.accept)
         btn_box.addStretch()
         btn_box.addWidget(ok_btn)
         layout.addLayout(btn_box)
+
+    def save_tts_settings(self):
+        self.settings.setValue("temperature", self.temp_edit.text())
+        self.settings.setValue("exaggeration", self.exaggeration_edit.text())
+        self.settings.setValue("cfg_weight", self.cfg_edit.text())
+
     def save_chapter_names(self, text):
-        settings = QSettings("chatterblez", "chatterblez-pyside")
-        settings.setValue("batch_ignore_chapter_names", text)
+        self.settings.setValue("batch_ignore_chapter_names", text)
 
 class BatchFilesPanel(QWidget):
     def __init__(self, batch_files, parent=None):
